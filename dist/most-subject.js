@@ -140,6 +140,7 @@
   }(most.Stream);
 
   function SubjectSource() {
+    // TODO: QUESTION: Why is the default schedule used when one is supplied to `run`?
     this.scheduler = defaultScheduler;
     this.sinks = [];
     this.active = true;
@@ -160,6 +161,7 @@
 
   // Subject methods
   SubjectSource.prototype.next = function next(value) {
+    // TODO: QUESTION: Why not throw here?
     if (!this.active) {
       return;
     }
@@ -185,6 +187,7 @@
   };
 
   // Multicasting methods
+  // TODO: QUESTION: Why not extending MulticastSource?
   SubjectSource.prototype.add = _most_multicast.MulticastSource.prototype.add;
   SubjectSource.prototype.remove = _most_multicast.MulticastSource.prototype.remove;
   SubjectSource.prototype._next = _most_multicast.MulticastSource.prototype.event;
@@ -206,6 +209,88 @@
     var remaining = this.source.remove(this.sink);
     return remaining === 0 && this.source._dispose();
   };
+
+  function fatalError(err) {
+    setTimeout(function () {
+      throw err;
+    }, 0);
+  }
+
+  function Task(f, e) {
+    this.f = f;
+    this.e = e;
+    this.active = true;
+  }
+  Task.prototype = {
+    run: function run() {
+      this.active && this.f();
+    },
+    error: function error(err) {
+      this.e(err);
+    },
+    dispose: function dispose() {
+      this.active = false;
+    }
+  };
+
+  // flow-ignore-next-line: I want to extend another class
+  var AsyncSubjectSource = function (_SubjectSource) {
+    babelHelpers.inherits(AsyncSubjectSource, _SubjectSource);
+
+    function AsyncSubjectSource() {
+      babelHelpers.classCallCheck(this, AsyncSubjectSource);
+      return babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(AsyncSubjectSource).apply(this, arguments));
+    }
+
+    babelHelpers.createClass(AsyncSubjectSource, [{
+      key: 'next',
+      value: function next(value) {
+        var _this2 = this;
+
+        this._asap(function () {
+          return babelHelpers.get(Object.getPrototypeOf(AsyncSubjectSource.prototype), 'next', _this2).call(_this2, value);
+        }, function (e) {
+          return _this2.error(e);
+        });
+      }
+    }, {
+      key: 'error',
+      value: function error(err) {
+        var _this3 = this;
+
+        this._asap(function () {
+          return babelHelpers.get(Object.getPrototypeOf(AsyncSubjectSource.prototype), 'error', _this3).call(_this3, err);
+        }, function (e) {
+          return _this3._fatalError(e);
+        });
+      }
+    }, {
+      key: 'complete',
+      value: function complete(value) {
+        var _this4 = this;
+
+        this._asap(function () {
+          return babelHelpers.get(Object.getPrototypeOf(AsyncSubjectSource.prototype), 'complete', _this4).call(_this4);
+        }, function (e) {
+          return _this4.error(e);
+        });
+      }
+    }, {
+      key: '_asap',
+      value: function _asap(f, e) {
+        this.scheduler.asap(new Task(f, e));
+      }
+
+      // Expose this for unit test
+
+    }, {
+      key: '_fatalError',
+      value: function _fatalError(err) {
+        fatalError(err);
+      }
+    }]);
+    return AsyncSubjectSource;
+  }(SubjectSource);
 
   // flow-ignore-next-line: I want to extend another class
   var HoldSubjectSource = function (_SubjectSource) {
@@ -284,6 +369,43 @@
   }
 
   /**
+   * Create a subject that emits events, errors, and completion on the next turn.
+   *
+   * @return {Subject} {@link Subject}
+   *
+   * @example
+   * import {asyncSubject} from 'most-subject'
+   *
+   * const stream = asyncSubject()
+   *
+   * let mostRecentValue
+   * let subjectCompleted = false
+   * stream
+   *   .observe(value => mostRecentValue = value)
+   *   .then(() => subjectCompleted = true)
+   *
+   * stream.next(1)
+   *
+   * // mostRecentValue === undefined
+   *
+   * Promise.resolve().then(() => {
+   *   // mostRecentValue === 1
+   * })
+   *
+   * // subjectCompleted === false
+   *
+   * stream.complete()
+   *
+   * Promise.resolve().then(() => {
+   *   // subjectCompleted === true
+   * })
+   */
+  // TODO: QUESTION: Should there be an asyncHoldSubject ? -- Is this a question I should ask?
+  function asyncSubject() {
+    return new Subject(new AsyncSubjectSource());
+  }
+
+  /**
    * Create a subject with a buffer to keep from missing events.
    *
    * @param  {number}    bufferSize =             1 The maximum size of the
@@ -317,6 +439,7 @@
   }
 
   exports.subject = subject;
+  exports.asyncSubject = asyncSubject;
   exports.holdSubject = holdSubject;
 
 }));

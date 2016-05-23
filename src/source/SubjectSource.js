@@ -3,6 +3,7 @@ import defaultScheduler from 'most/lib/scheduler/defaultScheduler'
 import {MulticastSource} from '@most/multicast'
 
 export function SubjectSource () {
+  // TODO: QUESTION: Why is the default schedule used when one is supplied to `run`?
   this.scheduler = defaultScheduler
   this.sinks = []
   this.active = true
@@ -21,6 +22,7 @@ SubjectSource.prototype._dispose = function dispose () {
 
 // Subject methods
 SubjectSource.prototype.next = function next (value: any) {
+  // TODO: QUESTION: Why not throw here?
   if (!this.active) { return }
   this._next(this.scheduler.now(), value)
 }
@@ -40,6 +42,7 @@ SubjectSource.prototype.complete = function complete (value: any) {
 }
 
 // Multicasting methods
+// TODO: QUESTION: Why not extending MulticastSource?
 SubjectSource.prototype.add = MulticastSource.prototype.add
 SubjectSource.prototype.remove = MulticastSource.prototype.remove
 SubjectSource.prototype._next = MulticastSource.prototype.event

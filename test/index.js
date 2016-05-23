@@ -1,8 +1,9 @@
 /* eslint max-nested-callbacks: 0 */
 /* global describe, it */
 import assert from 'power-assert'
+import sinon from 'sinon'
 import {Stream} from 'most'
-import {subject, holdSubject} from '../src'
+import {subject, asyncSubject, holdSubject} from '../src'
 
 describe('subject()', () => {
   describe('stream', () => {
@@ -126,5 +127,143 @@ describe('holdSubject', () => {
       })
 
     stream.complete()
+  })
+})
+
+describe('asyncSubject', () => {
+  it('should emit events asynchronously', done => {
+    const stream = asyncSubject()
+
+    // Use an array so we can verify number of events
+    const actualEvents = []
+    stream.observe(event => actualEvents.push(event))
+
+    const expectedEvent = 123
+    stream.next(expectedEvent)
+
+    assert.strictEqual(actualEvents.length, 0, 'event not emitted synchronously')
+
+    setTimeout(() => {
+      try {
+        assert.deepEqual(actualEvents, [ expectedEvent ], 'event emitted asynchronously')
+        done()
+      } catch (err) {
+        done(err)
+      } finally {
+        stream.complete()
+      }
+    }, 10)
+  })
+
+  it('should emit errors asynchronously', done => {
+    const stream = asyncSubject()
+
+    // Use arrays so we can verify number of emissions
+    const actualEvents = []
+    const actualErrors = []
+    stream.observe(event => actualEvents.push(event)).then(
+      () => { throw new Error('unexpected completion') },
+      err => actualErrors.push(err)
+    )
+
+    const expectedError = new Error('expected')
+    stream.error(expectedError)
+
+    assert.strictEqual(actualErrors.length, 0, 'error not emitted synchronously')
+
+    setTimeout(() => {
+      try {
+        assert.deepEqual(actualErrors, [ expectedError ], 'error emitted asynchronously')
+        // Be sure that emitting an error does not emit an event
+        assert.strictEqual(actualEvents.length, 0, 'no event emitted')
+        done()
+      } catch (err) {
+        done(err)
+      }
+    }, 10)
+  })
+
+  it('should complete asynchronously', done => {
+    const stream = asyncSubject()
+
+    // Use arrays so we can verify number of emissions
+    const actualEvents = []
+    const actualErrors = []
+    const completionSpy = sinon.spy()
+    stream.observe(event => actualEvents.push(event)).then(
+      completionSpy,
+      err => actualErrors.push(err)
+    )
+
+    stream.complete()
+
+    setTimeout(() => {
+      try {
+        assert.strictEqual(actualEvents.length, 0, 'no events were emitted')
+        assert.strictEqual(actualErrors.length, 0, 'no errors were emitted')
+        assert(completionSpy.called, 'stream completed')
+        assert(completionSpy.calledOnce, 'completed just once')
+        done()
+      } catch (err) {
+        done(err)
+      }
+    }, 10)
+  })
+
+  it('should emit an error if there is an error emitting an event', () => {
+    const stream = asyncSubject()
+    const {source} = stream
+
+    const asapSpy = source._asap = sinon.spy()
+    const errorSpy = source.error = sinon.spy()
+
+    stream.next(123)
+
+    assert(asapSpy.calledOnce)
+    const [, nextErrorHandler] = asapSpy.args[0]
+
+    assert(!errorSpy.called)
+    const expectedError = new Error('expected')
+    nextErrorHandler(expectedError)
+    assert(errorSpy.called)
+    assert(errorSpy.calledWith(expectedError), 'next() error handler emits error')
+  })
+
+  it('should be a fatal error to encounter an error while attempting to emit an error', () => {
+    const stream = asyncSubject()
+    const {source} = stream
+
+    const asapSpy = source._asap = sinon.spy()
+    const fatalErrorSpy = source._fatalError = sinon.spy()
+
+    stream.error(new Error())
+
+    assert(asapSpy.calledOnce)
+    const [, errorErrorHandler] = asapSpy.args[0]
+
+    assert(!fatalErrorSpy.called, 'fatal error handler not called yet')
+    const fatalError = new Error('fatal error')
+    errorErrorHandler(fatalError)
+    assert(fatalErrorSpy.called, 'fatal error handler called')
+    assert(fatalErrorSpy.calledWith(fatalError), 'error while emitting error is treated as fatal')
+  })
+
+  it('should emit an error if there is an error completing the stream', () => {
+    const stream = asyncSubject()
+    const {source} = stream
+
+    const asapSpy = source._asap = sinon.spy()
+    const errorSpy = source.error = sinon.spy()
+
+    stream.complete()
+
+    assert(asapSpy.calledOnce)
+    const [, completeErrorHandler] = asapSpy.args[0]
+
+    assert(!errorSpy.called)
+    const expectedError = new Error('expected')
+    completeErrorHandler(expectedError)
+    assert(errorSpy.called)
+    assert(errorSpy.calledWith(expectedError), 'complete() error handler emits error')
   })
 })

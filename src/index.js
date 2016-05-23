@@ -1,6 +1,7 @@
 /* @flow */
 import {Subject} from './Subject'
 import {SubjectSource} from './source/SubjectSource'
+import {AsyncSubjectSource} from './source/AsyncSubjectSource'
 import {HoldSubjectSource} from './source/HoldSubjectSource'
 
 /**
@@ -23,6 +24,43 @@ import {HoldSubjectSource} from './source/HoldSubjectSource'
  */
 export function subject (): Subject {
   return new Subject(new SubjectSource())
+}
+
+/**
+ * Create a subject that emits events, errors, and completion on the next turn.
+ *
+ * @return {Subject} {@link Subject}
+ *
+ * @example
+ * import {asyncSubject} from 'most-subject'
+ *
+ * const stream = asyncSubject()
+ *
+ * let mostRecentValue
+ * let subjectCompleted = false
+ * stream
+ *   .observe(value => mostRecentValue = value)
+ *   .then(() => subjectCompleted = true)
+ *
+ * stream.next(1)
+ *
+ * // mostRecentValue === undefined
+ *
+ * Promise.resolve().then(() => {
+ *   // mostRecentValue === 1
+ * })
+ *
+ * // subjectCompleted === false
+ *
+ * stream.complete()
+ *
+ * Promise.resolve().then(() => {
+ *   // subjectCompleted === true
+ * })
+ */
+// TODO: QUESTION: Should there be an asyncHoldSubject ? -- Is this a question I should ask?
+export function asyncSubject (): Subject {
+  return new Subject(new AsyncSubjectSource())
 }
 
 /**
