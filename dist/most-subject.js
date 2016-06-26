@@ -1,10 +1,9 @@
 (function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.mostSubject = f()}})(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 "use strict";
 
-var __extends = undefined && undefined.__extends || function (d, b) {
-    for (var p in b) {
-        if (b.hasOwnProperty(p)) d[p] = b[p];
-    }function __() {
+var __extends = this && this.__extends || function (d, b) {
+    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
+    function __() {
         this.constructor = d;
     }
     d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
@@ -68,11 +67,14 @@ var BasicSubjectSource = function () {
     function BasicSubjectSource() {
         this.scheduler = defaultScheduler;
         this.sinks = [];
-        this.active = true;
+        this.active = false;
     }
     BasicSubjectSource.prototype.run = function (sink, scheduler) {
         var n = this.add(sink);
-        if (n === 1) this.scheduler = scheduler;
+        if (n === 1) {
+            this.scheduler = scheduler;
+            this.active = true;
+        }
         return new SubjectDisposable_1.SubjectDisposable(this, sink);
     };
     BasicSubjectSource.prototype.add = function (sink) {
@@ -95,12 +97,12 @@ var BasicSubjectSource = function () {
     };
     BasicSubjectSource.prototype.error = function (err) {
         if (!this.active || this.scheduler === void 0) return;
-        this.active = false;
+        this._dispose();
         this._error(this.scheduler.now(), err);
     };
     BasicSubjectSource.prototype.complete = function (value) {
         if (!this.active || this.scheduler === void 0) return;
-        this.active = false;
+        this._dispose();
         this._complete(this.scheduler.now(), value);
     };
     BasicSubjectSource.prototype._next = function (time, value) {
@@ -133,10 +135,9 @@ exports.BasicSubjectSource = BasicSubjectSource;
 (function (global){
 "use strict";
 
-var __extends = undefined && undefined.__extends || function (d, b) {
-    for (var p in b) {
-        if (b.hasOwnProperty(p)) d[p] = b[p];
-    }function __() {
+var __extends = this && this.__extends || function (d, b) {
+    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
+    function __() {
         this.constructor = d;
     }
     d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
@@ -441,7 +442,7 @@ exports.findIndex = findIndex;
   // Internal helper to remove element at index
   function unsafeRemove(i, a, l) {
     var b = new Array(l);
-    var j = undefined;
+    var j = void 0;
     for (j = 0; j < i; ++j) {
       b[j] = a[j];
     }
